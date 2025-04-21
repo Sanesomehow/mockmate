@@ -2,12 +2,10 @@
 import React, { useState, useEffect } from "react";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,81 +21,69 @@ import { useRouter } from "next/navigation";
 
 const AddNewInterview = () => {
   const [openDailog, setOpenDialog] = useState(false);
-  const [jobPosition, setJobPosition] = useState();
-  const [jobDesc, setJobDesc] = useState();
-  const [jobExperience, setJobExperience] = useState();
+  const [jobPosition, setJobPosition] = useState("");
+  const [jobDesc, setJobDesc] = useState("");
+  const [jobExperience, setJobExperience] = useState("");
   const [loading, setLoading] = useState(false);
-  const [jsonResponse, setJsonResponse] = useState([]);
   const { user } = useUser();
   const router = useRouter();
 
+  // Prefill job description based on the selected job position, but allow editing
   useEffect(() => {
-    switch (jobPosition) {
-      case "Full stack Developer":
-        setJobDesc("React, Angular, Nodejs, Mysql, Nosql, Python");
-        break;
-      case "Frontend Developer":
-        setJobDesc("React, Angular, Vue, HTML, CSS, JavaScript");
-        break;
-      case "Backend Developer":
-        setJobDesc("Nodejs, Django, Flask, PostgreSQL, MongoDB, Redis");
-        break;
-      case "DevOps Engineer":
-        setJobDesc("AWS, Docker, Kubernetes, Terraform, Jenkins");
-        break;
-      case "Software Testing and Quality Assurance":
-        setJobDesc("Selenium, JUnit, TestNG, Postman, JIRA");
-        break;
-      default:
-        setJobDesc("");
-    }
+    const jobTechStacks = {
+      "Full stack Developer": "React, Angular, Node.js, MySQL, NoSQL, Python",
+      "Frontend Developer": "React, Angular, Vue, HTML, CSS, JavaScript",
+      "Backend Developer": "Node.js, Django, Flask, PostgreSQL, MongoDB, Redis",
+      "DevOps Engineer": "AWS, Docker, Kubernetes, Terraform, Jenkins",
+      "Software Testing and Quality Assurance": "Selenium, JUnit, TestNG, Postman, JIRA",
+    };
+    setJobDesc(jobTechStacks[jobPosition] || "");
   }, [jobPosition]);
 
   const onSubmit = async (e) => {
-    setLoading(true);
     e.preventDefault();
-    console.log(jobPosition, jobDesc, jobExperience);
+    setLoading(true);
 
     const InputPrompt = `
-  Job Positions: ${jobPosition}, 
-  Job Description: ${jobDesc}, 
-  Years of Experience: ${jobExperience}. 
-  Based on this information, please provide 5 interview questions with answers in JSON format, ensuring "Question" and "Answer" are fields in the JSON.
-`;
+    Job Position: ${jobPosition}, 
+    Job Description: ${jobDesc}, 
+    Years of Experience: ${jobExperience}. 
+    Based on this information, provide 5 interview questions with answers in JSON format, ensuring "Question" and "Answer" are fields in the JSON.
+    `;
 
-    const result = await chatSession.sendMessage(InputPrompt);
-    const MockJsonResp = result.response
-      .text()
-      .replace("```json", "")
-      .replace("```", "")
-      .trim();
-    console.log(JSON.parse(MockJsonResp));
-    // const parsedResp = MockJsonResp
-    setJsonResponse(MockJsonResp);
+    try {
+      const result = await chatSession.sendMessage(InputPrompt);
+      const MockJsonResp = result.response
+        .text()
+        .replace("```json", "")
+        .replace("```", "")
+        .trim();
 
-    if (MockJsonResp) {
-      const resp = await db
-        .insert(MockInterview)
-        .values({
-          mockId: uuidv4(),
-          jsonMockResp: MockJsonResp,
-          jobPosition: jobPosition,
-          jobDesc: jobDesc,
-          jobExperience: jobExperience,
-          createdBy: user?.primaryEmailAddress?.emailAddress,
-          createdAt: moment().format("YYYY-MM-DD"),
-        })
-        .returning({ mockId: MockInterview.mockId });
-        
-      console.log("Inserted ID:", resp);
+      if (MockJsonResp) {
+        const resp = await db
+          .insert(MockInterview)
+          .values({
+            mockId: uuidv4(),
+            jsonMockResp: MockJsonResp,
+            jobPosition: jobPosition,
+            jobDesc: jobDesc,
+            jobExperience: jobExperience,
+            createdBy: user?.primaryEmailAddress?.emailAddress,
+            createdAt: moment().format("YYYY-MM-DD"),
+          })
+          .returning({ mockId: MockInterview.mockId });
 
-      if (resp) {
-        setOpenDialog(false);
-        router.push("/dashboard/interview/" + resp[0]?.mockId);
+        if (resp) {
+          setOpenDialog(false);
+          router.push("/dashboard/interview/" + resp[0]?.mockId);
+        }
+      } else {
+        console.error("Error generating interview questions");
       }
-    } else {
-      console.log("ERROR");
+    } catch (error) {
+      console.error("Error:", error);
     }
+
     setLoading(false);
   };
 
@@ -107,24 +93,24 @@ const AddNewInterview = () => {
         className="p-8 rounded-lg border bg-gray-300 hover:scale-105 hover:shadow-sm transition-all cursor-pointer"
         onClick={() => setOpenDialog(true)}
       >
-        <h2 className=" text-lg text-center">+ Add New</h2>
+        <h2 className="text-lg text-center">+ Add New</h2>
       </div>
       <Dialog open={openDailog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl">
-              Tell us more about your job interviwing
+              Tell us more about your job interview
             </DialogTitle>
             <DialogDescription>
               <form onSubmit={onSubmit}>
                 <div className="my-3">
                   <h2>
-                    Add Details about your job position, job descritpion and
-                    years of experience
+                    Add details about your job position, description, and years of experience
                   </h2>
 
+                  {/* Job Role / Job Position */}
                   <div className="mt-7 my-3">
-                    <label className="text-black">Job Role/job Position</label>
+                    <label className="text-black">Job Role/Job Position</label>
                     <select
                       className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                       value={jobPosition}
@@ -139,25 +125,20 @@ const AddNewInterview = () => {
                       <option value="Software Testing and Quality Assurance">Software Testing and Quality Assurance</option>
                     </select>
                   </div>
+
+                  {/* Job Description / Tech Stack */}
                   <div className="my-5">
-                    <label className="text-black">
-                      Job Description/ Tech stack (In Short)
-                    </label>
-                    <select
+                    <label className="text-black">Job Description / Tech Stack</label>
+                    <Textarea
                       className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      value={jobDesc}
+                      placeholder="Describe the tech stack or skills required for this job..."
                       required
+                      value={jobDesc}
                       onChange={(e) => setJobDesc(e.target.value)}
-                      disabled
-                    >
-                      <option value="" disabled>Select Tech Stack</option>
-                      <option value="React, Angular, Nodejs, Mysql, Nosql, Python">React, Angular, Nodejs, Mysql, Nosql, Python</option>
-                      <option value="React, Angular, Vue, HTML, CSS, JavaScript">React, Angular, Vue, HTML, CSS, JavaScript</option>
-                      <option value="Nodejs, Django, Flask, PostgreSQL, MongoDB, Redis">Nodejs, Django, Flask, PostgreSQL, MongoDB, Redis</option>
-                      <option value="AWS, Docker, Kubernetes, Terraform, Jenkins">AWS, Docker, Kubernetes, Terraform, Jenkins</option>
-                      <option value="Selenium, JUnit, TestNG, Postman, JIRA">Selenium, JUnit, TestNG, Postman, JIRA</option>
-                    </select>
+                    />
                   </div>
+
+                  {/* Years of Experience */}
                   <div className="my-5">
                     <label className="text-black">Years of Experience</label>
                     <Input
@@ -170,10 +151,11 @@ const AddNewInterview = () => {
                     />
                   </div>
                 </div>
+
                 <div className="flex gap-5 justify-end">
                   <Button
                     type="button"
-                    variant="goast"
+                    variant="ghost"
                     onClick={() => setOpenDialog(false)}
                   >
                     Cancel
